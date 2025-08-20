@@ -28,7 +28,7 @@ jobs:
           pip install pytest-cov
 
       - name: Run tests and generate coverage
-        run: pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=app | tee pytest-coverage.txt
+        run: pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=. | tee pytest-coverage.txt
 
       - name: Pytest coverage comment
         uses: MishaKav/pytest-coverage-comment@main
