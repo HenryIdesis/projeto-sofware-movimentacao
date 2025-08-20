@@ -65,3 +65,6 @@ pytestdebug.log
 # Mac / Linux / Windows junk
 .DS_Store
 Thumbs.db
+
+pytest-coverage.txt
+pytest.xml
