@@ -1,5 +1,19 @@
-FROM amazoncorretto:21
+FROM python:3.11-slim
 
-COPY target/stocks-0.0.1-SNAPSHOT.jar /app.jar
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app
 
-ENTRYPOINT ["java", "-jar", "/app.jar"]
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+EXPOSE 8080
+
+# Flask (app.py com objeto 'app'):
+# CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:app"]
+
+# FastAPI (main.py com objeto 'app'):
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]

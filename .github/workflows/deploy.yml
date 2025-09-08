@@ -2,7 +2,11 @@ name: Deploy AWS
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -13,14 +17,15 @@ jobs:
       packages: write
 
     steps:
-      - name: Clone do projeto
+      - name: Checkout
         uses: actions/checkout@v4
-        
+
+      # (Opcional) testes fora do Docker
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          
+          python-version: "3.11"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -28,33 +33,39 @@ jobs:
 
       - name: Run tests
         run: |
-          if [ -f pytest.ini ] || [ -d tests ]; then pytest; fi
+          if [ -f pytest.ini ] || [ -d tests ]; then pytest -q; fi
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: "henryidesis"
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        
-      - name: Build and push
+
+      - name: Build and push image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: henryidesis/stocks-ci:${{ github.sha }}
+          platforms: linux/amd64
+          tags: |
+            henryidesis/stocks-ci:latest
+            henryidesis/stocks-ci:${{ github.sha }}
 
-      - name: executing remote ssh commands using password
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.HOST_KEY }}
+          host: ${{ secrets.HOST_KEY }}   # IP/DNS do servidor
           username: "ubuntu"
-          key: ${{ secrets.TEST_KEY }}
+          key: ${{ secrets.TEST_KEY }}    # chave privada (PEM)
           port: 22
           script: |
+            set -e
+            docker pull henryidesis/stocks-ci:${{ github.sha }} || docker pull henryidesis/stocks-ci:latest
             docker stop stocks || true
             docker rm --force stocks || true
-            docker run -d -p 8080:8080 --name stocks henryidesis/stocks-ci:${{ github.sha }}
+            docker run -d --name stocks --restart unless-stopped -p 8080:8080 henryidesis/stocks-ci:${{ github.sha }}
+            docker image prune -f || true
